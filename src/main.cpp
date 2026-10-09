@@ -48,12 +48,17 @@ struct Tile {
     SDL_Color color;
 };
 
+int grid_dimension = 3;
+
 std::vector<Tile> grid = {
     Tile{.type = START, .color = color_blue},  Tile{.type = EMPTY, .color = color_white}, Tile{.type = EMPTY, .color = color_white},
     Tile{.type = EMPTY, .color = color_white}, Tile{.type = BLOCK, .color = color_red},   Tile{.type = EMPTY, .color = color_white},
     Tile{.type = BLOCK, .color = color_red},   Tile{.type = EMPTY, .color = color_white}, Tile{.type = END, .color = color_green},
 };
 
+float get_center(float a) {
+    return a + (square_size / 2);
+}
 
 void set_total_cost (Tile* tile, float g, float h) {
     tile->f = g + h;
@@ -66,13 +71,25 @@ void draw_square(SDL_Renderer* renderer, float size, Tile tile) {
 }
 
 void draw_line(SDL_Renderer* renderer, Tile origin, Tile destination) {
-    float x1 = origin.x + (square_size / 2); 
-    float y1 = origin.y + (square_size / 2);
+    float x1 = get_center(origin.x); 
+    float y1 = get_center(origin.y);
 
-    float x2 = destination.x + (square_size / 2);
-    float y2 = destination.y + (square_size / 2);
+    float x2 = get_center(destination.x);
+    float y2 = get_center(destination.y);
 
     SDL_RenderLine(renderer, x1, y1, x2, y2);
+}
+
+Tile* get_tile_at(std::vector<Tile>& grid, int row, int col, int dimension) {
+    if (row < 0 || row >= dimension || col < 0 || col >= dimension) {
+        return nullptr;
+    }
+    
+    return &grid[row * dimension + col];
+}
+
+float calc_heuristic_manhattan(Tile& tile_a, Tile& tile_b) {
+    return std::abs(get_center(tile_a.x) - get_center(tile_b.x)) + std::abs(get_center(tile_a.y) - get_center(tile_b.y));
 }
 
 int main(int arhc, char* argv[]) {
@@ -100,6 +117,8 @@ int main(int arhc, char* argv[]) {
         grid[i].y = y;
     }
 
+    Tile& goal = grid[grid.size() - 1]; // Assuming that the last item is the goal
+
     // Main Loop
     while(true) {
         Uint64 ticks = SDL_GetTicks();
@@ -111,6 +130,24 @@ int main(int arhc, char* argv[]) {
             if (event.type == SDL_EVENT_QUIT) {
                 exit = true;
             }
+        }
+
+        for (int i = 0; i < grid.size(); i++) {
+            int row = i / grid_dimension;
+            int col = i % grid_dimension;
+           
+            Tile* parent = &grid[i];
+            Tile* tile_nb_right = get_tile_at(grid, row, col + 1, grid_dimension);
+            Tile* tile_nb_left = get_tile_at(grid, row, col - 1, grid_dimension); 
+            Tile* tile_nb_top = get_tile_at(grid, row - 1, col, grid_dimension);
+            Tile* tile_nb_bottom = get_tile_at(grid, row + 1, col, grid_dimension);
+
+            int g = i + 1; // temp for testing
+            float h = calc_heuristic_manhattan(grid[i], goal); // temp for testing
+            print(std::to_string(h));
+
+            // TODO: Calculate f and g, then save those informations and continue with the algorithm
+            // Ref video: https://www.youtube.com/watch?v=o5_mqZKhTvw
         }
 
         if (exit) {

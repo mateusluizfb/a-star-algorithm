@@ -6,7 +6,7 @@
       "type": "shell",
       "command": "make",
       "args": [
-        "all" // Substitua pelo seu alvo do Makefile (ex: 'build', 'main', etc.), se houver
+        "all"
       ],
       "group": {
         "kind": "build",
