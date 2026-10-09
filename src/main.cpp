@@ -18,30 +18,46 @@
 #include <stdio.h>
 #include <algorithm>
 
-#include "logger.h" 
+#include "logger.h"
+
+#define START 1
+#define BLOCK 2
+#define END   3
+#define EMPTY 0
 
 int window_width = 1200;
 int window_height = 800;
+
+float square_size = 100.0f;
 
 SDL_Color color_red = {255, 0, 0};
 SDL_Color color_green = {0, 255, 0};
 SDL_Color color_blue = {0, 0, 255};
 SDL_Color color_white = {255, 255, 255};
 
-float square_size = 100.0f;
-
 struct Tile {
+    int type;
+
+    float x = 0;
+    float y = 0;
+
+    int f = 0;
+    int g = 0;
+    int h = 0;
+
     SDL_Color color;
-    float x;
-    float y;
 };
 
-// 1: start; 2: block; 3: end;
-std::vector<int> grid = {
-    1, 0, 0,
-    0, 2, 0,
-    2, 0, 3,
+std::vector<Tile> grid = {
+    Tile{.type = START, .color = color_blue},  Tile{.type = EMPTY, .color = color_white}, Tile{.type = EMPTY, .color = color_white},
+    Tile{.type = EMPTY, .color = color_white}, Tile{.type = BLOCK, .color = color_red},   Tile{.type = EMPTY, .color = color_white},
+    Tile{.type = BLOCK, .color = color_red},   Tile{.type = EMPTY, .color = color_white}, Tile{.type = END, .color = color_green},
 };
+
+
+void set_total_cost (Tile* tile, float g, float h) {
+    tile->f = g + h;
+}
 
 void draw_square(SDL_Renderer* renderer, float size, Tile tile) {
     SDL_SetRenderDrawColor(renderer, tile.color.r, tile.color.g, tile.color.b, 255);
@@ -76,29 +92,12 @@ int main(int arhc, char* argv[]) {
     float w_start_pos = 300;
     float h_start_pos = 200;
 
-
-    std::vector<Tile> tiles = {};
-    
     for (int i = 0; i < grid.size(); i++) {
         float x = w_start_pos + ((i % 3) * square_size); 
         float y = h_start_pos + ((i / 3) * square_size);
 
-        if (grid[i] == 1) {
-            tiles.push_back(Tile{color_blue, x, y});
-            continue;
-        }
-
-        if (grid[i] == 2) {
-            tiles.push_back(Tile{color_red, x, y});
-            continue;
-        }
-
-        if (grid[i] == 3) {
-            tiles.push_back(Tile{color_green, x, y});
-            continue;
-        }
-
-        tiles.push_back(Tile{color_white, x, y});
+        grid[i].x = x;
+        grid[i].y = y;
     }
 
     // Main Loop
@@ -122,13 +121,13 @@ int main(int arhc, char* argv[]) {
         SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
         SDL_RenderClear(renderer);
 
-        for (int i = 0; i < tiles.size(); i++) {
-            draw_square(renderer, square_size, tiles[i]);
+        for (int i = 0; i < grid.size(); i++) {
+            draw_square(renderer, square_size, grid[i]); // Maybe passing the grid[i] ptr is better, may avoid copying the value, but Im not sure if this happens
         }
 
 
         SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
-        draw_line(renderer, tiles[0], tiles[1]);
+        draw_line(renderer, grid[0], grid[1]);
   
         SDL_RenderPresent(renderer);
         SDL_Delay(16); // Force 60 FPS -> 1000 (1s) / 60 = 16.6666...
