@@ -1,6 +1,6 @@
 CXX = g++
-CXXFLAGS = -g $(shell pkg-config --cflags sdl3 sdl3-image)
-LDFLAGS = $(shell pkg-config --libs sdl3 sdl3-image)
+CXXFLAGS = -g $(shell pkg-config --cflags sdl3 sdl3-image sdl3-ttf)
+LDFLAGS = $(shell pkg-config --libs sdl3 sdl3-image sdl3-ttf)
 
 TARGET = main
 SRC = src/main.cpp

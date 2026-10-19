@@ -10,6 +10,7 @@
 #include <SDL3/SDL_timer.h>
 #include <SDL3/SDL_video.h>
 #include <SDL3_image/SDL_image.h>
+#include <SDL3_ttf/SDL_ttf.h>
 #include <cmath>
 #include <cstdint>
 #include <string>
@@ -56,6 +57,10 @@ std::vector<Tile> grid = {
     Tile{.type = BLOCK, .color = color_red},   Tile{.type = EMPTY, .color = color_white}, Tile{.type = END, .color = color_green},
 };
 
+void print_tile(Tile tile) {
+    print("Tile " + std::to_string(tile.x) + "x" + std::to_string(tile.y) + "; Type: " + std::to_string(tile.type) + "; g: " + std::to_string(tile.g) + " h: " + std::to_string(tile.h) + " f: " + std::to_string(tile.f));
+}
+
 float get_center(float a) {
     return a + (square_size / 2);
 }
@@ -64,10 +69,15 @@ void set_total_cost (Tile* tile, float g, float h) {
     tile->f = g + h;
 }
 
-void draw_square(SDL_Renderer* renderer, float size, Tile tile) {
+void draw_square(SDL_Renderer* renderer, TTF_Font* font, TTF_TextEngine* engine, float size, Tile tile) {
     SDL_SetRenderDrawColor(renderer, tile.color.r, tile.color.g, tile.color.b, 255);
     SDL_FRect square = { tile.x, tile.y, size, size };
     SDL_RenderRect(renderer, &square);
+
+    TTF_Text* text = TTF_CreateText(engine, font, "Olá, SDL3_ttf!", 0);
+
+    TTF_DrawRendererText(text, tile.x, tile.y);
+    TTF_DestroyText(text);
 }
 
 void draw_line(SDL_Renderer* renderer, Tile origin, Tile destination) {
@@ -88,8 +98,19 @@ Tile* get_tile_at(std::vector<Tile>& grid, int row, int col, int dimension) {
     return &grid[row * dimension + col];
 }
 
-float calc_heuristic_manhattan(Tile& tile_a, Tile& tile_b) {
-    return std::abs(get_center(tile_a.x) - get_center(tile_b.x)) + std::abs(get_center(tile_a.y) - get_center(tile_b.y));
+float calc_heuristic_manhattan(Tile* tile_a, Tile* tile_b) {
+    return std::abs(get_center(tile_a->x) - get_center(tile_b->x)) + std::abs(get_center(tile_a->y) - get_center(tile_b->y));
+}
+
+void set_distance_params(Tile* tile, Tile* goal, int g) {
+    if (tile == nullptr) return;
+
+    float h = calc_heuristic_manhattan(tile, goal); // temp for testing
+    float f = g + h;
+
+    tile->g = g;
+    tile->h = h;
+    tile->f = f;
 }
 
 int main(int arhc, char* argv[]) {
@@ -99,6 +120,10 @@ int main(int arhc, char* argv[]) {
 
     SDL_Window* window = SDL_CreateWindow("A* algorithm test", window_width, window_height, SDL_WINDOW_OPENGL);
     SDL_Renderer* renderer = SDL_CreateRenderer(window, NULL);
+    
+    TTF_Init();
+    TTF_Font* font = TTF_OpenFont("./roboto.ttf", 12.0f);
+    TTF_TextEngine* engine = TTF_CreateRendererTextEngine(renderer);
 
     SDL_Event event;
     bool exit = false;
@@ -132,23 +157,33 @@ int main(int arhc, char* argv[]) {
             }
         }
 
-        for (int i = 0; i < grid.size(); i++) {
-            int row = i / grid_dimension;
-            int col = i % grid_dimension;
-           
-            Tile* parent = &grid[i];
-            Tile* tile_nb_right = get_tile_at(grid, row, col + 1, grid_dimension);
-            Tile* tile_nb_left = get_tile_at(grid, row, col - 1, grid_dimension); 
-            Tile* tile_nb_top = get_tile_at(grid, row - 1, col, grid_dimension);
-            Tile* tile_nb_bottom = get_tile_at(grid, row + 1, col, grid_dimension);
+        int i = 0; 
 
-            int g = i + 1; // temp for testing
-            float h = calc_heuristic_manhattan(grid[i], goal); // temp for testing
-            print(std::to_string(h));
+        int row = i / grid_dimension;
+        int col = i % grid_dimension;
+       
+        Tile* start = &grid[i];
 
-            // TODO: Calculate f and g, then save those informations and continue with the algorithm
-            // Ref video: https://www.youtube.com/watch?v=o5_mqZKhTvw
-        }
+        Tile* tile_nb_right = get_tile_at(grid, row, col + 1, grid_dimension);
+        Tile* tile_nb_left = get_tile_at(grid, row, col - 1, grid_dimension); 
+        Tile* tile_nb_top = get_tile_at(grid, row - 1, col, grid_dimension);
+        Tile* tile_nb_bottom = get_tile_at(grid, row + 1, col, grid_dimension);
+
+        float g = i + 1; // temp for testing
+        set_distance_params(tile_nb_right, &goal, g);
+        set_distance_params(tile_nb_left, &goal, g);
+        set_distance_params(tile_nb_top, &goal, g);
+        set_distance_params(tile_nb_bottom, &goal, g);
+        // print_tile(*tile_nb_right);
+        //print_tile(*tile_nb_left);
+        //print_tile(*tile_nb_top);
+        // print_tile(*tile_nb_bottom);
+
+
+        // h -> distance between the current tile and the goal
+        // g -> distance between the starting point and the current tile
+        // TODO: Calculate f and g, then save those informations and continue with the algorithm
+        // Ref video: https://www.youtube.com/watch?v=o5_mqZKhTvw
 
         if (exit) {
             break;
@@ -159,7 +194,7 @@ int main(int arhc, char* argv[]) {
         SDL_RenderClear(renderer);
 
         for (int i = 0; i < grid.size(); i++) {
-            draw_square(renderer, square_size, grid[i]); // Maybe passing the grid[i] ptr is better, may avoid copying the value, but Im not sure if this happens
+            draw_square(renderer, font, engine, square_size, grid[i]); // Maybe passing the grid[i] ptr is better, may avoid copying the value, but Im not sure if this happens
         }
 
 
