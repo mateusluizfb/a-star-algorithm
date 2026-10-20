@@ -74,10 +74,19 @@ void draw_square(SDL_Renderer* renderer, TTF_Font* font, TTF_TextEngine* engine,
     SDL_FRect square = { tile.x, tile.y, size, size };
     SDL_RenderRect(renderer, &square);
 
-    TTF_Text* text = TTF_CreateText(engine, font, "Olá, SDL3_ttf!", 0);
+    TTF_Text* F = TTF_CreateText(engine, font, ("F: " + std::to_string(tile.f)).c_str(), 0);
+    TTF_Text* G = TTF_CreateText(engine, font, ("G: " + std::to_string(tile.g)).c_str(), 0);
+    TTF_Text* H = TTF_CreateText(engine, font, ("H: " + std::to_string(tile.h)).c_str(), 0);
 
-    TTF_DrawRendererText(text, tile.x, tile.y);
-    TTF_DestroyText(text);
+    int bottom_offset = (size - 16);
+    int right_offset = (size - 42);
+
+    TTF_DrawRendererText(F, tile.x, tile.y);
+    TTF_DrawRendererText(G, tile.x, tile.y + bottom_offset);
+    TTF_DrawRendererText(H, tile.x + right_offset, tile.y + bottom_offset);
+    TTF_DestroyText(F);
+    TTF_DestroyText(G);
+    TTF_DestroyText(H);
 }
 
 void draw_line(SDL_Renderer* renderer, Tile origin, Tile destination) {
