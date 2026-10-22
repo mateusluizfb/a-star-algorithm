@@ -18,6 +18,7 @@
 #include <vector>
 #include <stdio.h>
 #include <algorithm>
+#include <set>
 
 #include "logger.h"
 
@@ -122,6 +123,29 @@ void set_distance_params(Tile* tile, Tile* goal, int g) {
     tile->f = f;
 }
 
+std::vector<Tile*> get_neighbors(int tile_index) {
+    int row = tile_index / grid_dimension;
+    int col = tile_index % grid_dimension;
+
+    Tile* tile_nb_right = get_tile_at(grid, row, col + 1, grid_dimension);
+    Tile* tile_nb_left = get_tile_at(grid, row, col - 1, grid_dimension); 
+    Tile* tile_nb_top = get_tile_at(grid, row - 1, col, grid_dimension);
+    Tile* tile_nb_bottom = get_tile_at(grid, row + 1, col, grid_dimension);
+
+    return {tile_nb_top, tile_nb_right, tile_nb_bottom, tile_nb_left};
+}
+
+// TODO: Receive a ref for the list, I don't know if this is copying the list
+bool visited(const std::vector<Tile*>& tile_list, Tile* current_tile) {
+    for (Tile* tile : tile_list) {
+        if (tile->x == current_tile->x && tile->y == current_tile->y) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 int main(int arhc, char* argv[]) {
     print("Starting");
 
@@ -153,6 +177,15 @@ int main(int arhc, char* argv[]) {
 
     Tile& goal = grid[grid.size() - 1]; // Assuming that the last item is the goal
 
+    // This might have perfomance issues due to lost of localized cache, but Im not sure
+    std::vector<Tile*> open_list = {}; 
+    std::vector<Tile*> closed_list = {};
+
+    int i = 0; 
+
+    Tile* current_node = &grid[i];
+    open_list.push_back(current_node);
+
     // Main Loop
     while(true) {
         Uint64 ticks = SDL_GetTicks();
@@ -166,33 +199,56 @@ int main(int arhc, char* argv[]) {
             }
         }
 
-        int i = 0; 
-
-        int row = i / grid_dimension;
-        int col = i % grid_dimension;
-       
-        Tile* start = &grid[i];
-
-        Tile* tile_nb_right = get_tile_at(grid, row, col + 1, grid_dimension);
-        Tile* tile_nb_left = get_tile_at(grid, row, col - 1, grid_dimension); 
-        Tile* tile_nb_top = get_tile_at(grid, row - 1, col, grid_dimension);
-        Tile* tile_nb_bottom = get_tile_at(grid, row + 1, col, grid_dimension);
-
-        float g = i + 1; // temp for testing
-        set_distance_params(tile_nb_right, &goal, g);
-        set_distance_params(tile_nb_left, &goal, g);
-        set_distance_params(tile_nb_top, &goal, g);
-        set_distance_params(tile_nb_bottom, &goal, g);
-        // print_tile(*tile_nb_right);
-        //print_tile(*tile_nb_left);
-        //print_tile(*tile_nb_top);
-        // print_tile(*tile_nb_bottom);
-
-
-        // h -> distance between the current tile and the goal
-        // g -> distance between the starting point and the current tile
-        // TODO: Calculate f and g, then save those informations and continue with the algorithm
         // Ref video: https://www.youtube.com/watch?v=o5_mqZKhTvw
+
+        while (current_node->type != goal.type) {
+            std::vector<Tile*> neighbors = get_neighbors(i);
+
+            // start by adding to the open list the current node and its non-null and no-blocking neighbors
+            for (Tile* tile : neighbors) {
+                if (tile == nullptr || tile->type == BLOCK) {
+                    continue;
+                }
+
+                if (visited(closed_list, tile) || visited(open_list, tile)) {
+                    continue;
+                }
+
+                open_list.push_back(tile); 
+            }
+
+            // then calculate g, the distance for each neighbors
+            float g = i + 1;
+            for (Tile* tile : neighbors) {
+                if (tile == nullptr || tile->type == BLOCK) {
+                    continue;
+                }
+
+                if (visited(closed_list, tile) || tile->f != 0) {
+                    continue;
+                }
+
+                if (tile->type == END) {
+                    print("GOAL FOUND");
+                    continue;
+                }
+
+                set_distance_params(tile, &goal, g); 
+            }
+
+            // remove the current node from the open list and add it to the close list
+            closed_list.push_back(open_list[0]);
+            open_list.erase(open_list.begin());
+
+            // then sort the open list
+            std::sort(open_list.begin(), open_list.end(), [](Tile* a, Tile* b) {
+                return (a->f > b->f);
+            });
+
+            // then start by the lowest F (index 0)
+            current_node = open_list[0];
+            i++;
+        }
 
         if (exit) {
             break;
