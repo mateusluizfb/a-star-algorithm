@@ -48,15 +48,16 @@ struct Tile {
     int h = 0;
 
     SDL_Color color;
+    Tile* parent;
 };
-
-int grid_dimension = 3;
 
 std::vector<Tile> grid = {
     Tile{.type = START, .color = color_blue},  Tile{.type = EMPTY, .color = color_white}, Tile{.type = EMPTY, .color = color_white},
     Tile{.type = EMPTY, .color = color_white}, Tile{.type = BLOCK, .color = color_red},   Tile{.type = EMPTY, .color = color_white},
     Tile{.type = BLOCK, .color = color_red},   Tile{.type = EMPTY, .color = color_white}, Tile{.type = END, .color = color_green},
 };
+
+int GRID_DIMENSION = 3;
 
 void print_tile(Tile tile) {
     print("Tile " + std::to_string(tile.x) + "x" + std::to_string(tile.y) + "; Type: " + std::to_string(tile.type) + "; g: " + std::to_string(tile.g) + " h: " + std::to_string(tile.h) + " f: " + std::to_string(tile.f));
@@ -123,19 +124,25 @@ void set_distance_params(Tile* tile, Tile* goal, int g) {
     tile->f = f;
 }
 
-std::vector<Tile*> get_neighbors(int tile_index) {
-    int row = tile_index / grid_dimension;
-    int col = tile_index % grid_dimension;
+std::vector<Tile*> get_non_null_neighbors(int tile_index) {
+    std::vector<Tile*> result = {};
 
-    Tile* tile_nb_right = get_tile_at(grid, row, col + 1, grid_dimension);
-    Tile* tile_nb_left = get_tile_at(grid, row, col - 1, grid_dimension); 
-    Tile* tile_nb_top = get_tile_at(grid, row - 1, col, grid_dimension);
-    Tile* tile_nb_bottom = get_tile_at(grid, row + 1, col, grid_dimension);
+    int row = tile_index / GRID_DIMENSION;
+    int col = tile_index % GRID_DIMENSION;
 
-    return {tile_nb_top, tile_nb_right, tile_nb_bottom, tile_nb_left};
+    Tile* tile_nb_right = get_tile_at(grid, row, col + 1, GRID_DIMENSION);
+    Tile* tile_nb_left = get_tile_at(grid, row, col - 1, GRID_DIMENSION); 
+    Tile* tile_nb_top = get_tile_at(grid, row - 1, col, GRID_DIMENSION);
+    Tile* tile_nb_bottom = get_tile_at(grid, row + 1, col, GRID_DIMENSION);
+
+    if (tile_nb_right != nullptr) result.push_back(tile_nb_right);
+    if (tile_nb_left != nullptr) result.push_back(tile_nb_left);
+    if (tile_nb_top != nullptr) result.push_back(tile_nb_top);
+    if (tile_nb_bottom != nullptr) result.push_back(tile_nb_bottom);
+
+    return result;
 }
 
-// TODO: Receive a ref for the list, I don't know if this is copying the list
 bool visited(const std::vector<Tile*>& tile_list, Tile* current_tile) {
     for (Tile* tile : tile_list) {
         if (tile->x == current_tile->x && tile->y == current_tile->y) {
@@ -202,11 +209,12 @@ int main(int arhc, char* argv[]) {
         // Ref video: https://www.youtube.com/watch?v=o5_mqZKhTvw
 
         while (current_node->type != goal.type) {
-            std::vector<Tile*> neighbors = get_neighbors(i);
+            int i = std::distance(grid.data(), current_node);
+            std::vector<Tile*> neighbors = get_non_null_neighbors(i);
 
-            // start by adding to the open list the current node and its non-null and no-blocking neighbors
+            // start by adding to the open list the current node and no-blocking neighbors
             for (Tile* tile : neighbors) {
-                if (tile == nullptr || tile->type == BLOCK) {
+                if (tile->type == BLOCK) {
                     continue;
                 }
 
@@ -220,7 +228,7 @@ int main(int arhc, char* argv[]) {
             // then calculate g, the distance for each neighbors
             float g = i + 1;
             for (Tile* tile : neighbors) {
-                if (tile == nullptr || tile->type == BLOCK) {
+                if (tile->type == BLOCK) {
                     continue;
                 }
 
@@ -228,24 +236,30 @@ int main(int arhc, char* argv[]) {
                     continue;
                 }
 
+                tile->parent = current_node;
+                set_distance_params(tile, &goal, g);
+
                 if (tile->type == END) {
-                    print("GOAL FOUND");
+                    print("GOAL REACHED");
                     continue;
                 }
-
-                set_distance_params(tile, &goal, g); 
             }
 
             // remove the current node from the open list and add it to the close list
             closed_list.push_back(open_list[0]);
             open_list.erase(open_list.begin());
 
-            // then sort the open list
+            // then sort the open list by F cost
             std::sort(open_list.begin(), open_list.end(), [](Tile* a, Tile* b) {
                 return (a->f > b->f);
             });
 
             // then start by the lowest F (index 0)
+            if (open_list.size() == 0) {
+                print("ENDED");
+                break;
+            }
+
             current_node = open_list[0];
             i++;
         }
@@ -264,8 +278,16 @@ int main(int arhc, char* argv[]) {
 
 
         SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
-        draw_line(renderer, grid[0], grid[1]);
-  
+
+        Tile* child = &goal;
+        Tile* parent = goal.parent;
+
+        while (parent != nullptr) {
+            draw_line(renderer, *parent, *child);
+            child = parent;
+            parent = parent->parent;
+        }
+
         SDL_RenderPresent(renderer);
         SDL_Delay(16); // Force 60 FPS -> 1000 (1s) / 60 = 16.6666...
     }
